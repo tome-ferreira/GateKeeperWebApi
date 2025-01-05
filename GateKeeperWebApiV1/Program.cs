@@ -72,10 +72,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowedDomainsPolicy", policy =>
     {
-        policy.WithOrigins("https://localhost:8100", "http://localhost:8100") // Adicione outras origens se necessário
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        policy.AllowAnyHeader()
+          .AllowAnyMethod()
+          .AllowCredentials()
+          .SetIsOriginAllowed(origin => true); // Accept any origin
     });
 });
 

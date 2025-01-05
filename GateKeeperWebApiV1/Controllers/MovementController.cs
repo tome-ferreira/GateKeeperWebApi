@@ -1,8 +1,10 @@
 ﻿using GateKeeperWebApiV1.Data;
 using GateKeeperWebApiV1.Models;
+using GateKeeperWebApiV1.Objects;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography.Pkcs;
 
 namespace GateKeeperWebApiV1.Controllers
@@ -12,9 +14,9 @@ namespace GateKeeperWebApiV1.Controllers
     public class MovementController : _BaseApiController
     {
         private readonly ApplicationDbContext dbContext;
-        private readonly UserManager<IdentityUser> userManager;
+        private readonly UserManager<ApplicationUser> userManager;
 
-        public MovementController(ApplicationDbContext dbContext, UserManager<IdentityUser> userManager)
+        public MovementController(ApplicationDbContext dbContext, UserManager<ApplicationUser> userManager)
         {
             this.dbContext = dbContext;
             this.userManager = userManager;
@@ -24,6 +26,7 @@ namespace GateKeeperWebApiV1.Controllers
         public async Task<IActionResult> PostMovement(string link, string shiftId, string isEntrance)
         {
             var email = GetUserIdFromToken();
+            //var email = "tomepereiraferreira@gmail.com";
 
             var user = await userManager.FindByEmailAsync(email);
 
@@ -44,7 +47,7 @@ namespace GateKeeperWebApiV1.Controllers
                 
                 if (uri.Host != "gatekeeper.xiscard.eu" || uri.AbsolutePath != "/Q/Index")
                 {
-                    return BadRequest("O link código QR não é válido");
+                    return Ok("O link código QR não é válido");
                 }
 
                 
@@ -53,13 +56,13 @@ namespace GateKeeperWebApiV1.Controllers
 
                 if (string.IsNullOrEmpty(workerId))
                 {
-                    return BadRequest("O link código QR não é válido");
+                    return Ok("O link código QR não é válido");
                 }
 
             }
             catch (UriFormatException)
             {
-                return BadRequest("O link código QR não é válido");
+                return Ok("O link código QR não é válido");
             }
 
             if (isEntrance == "true")
@@ -79,10 +82,53 @@ namespace GateKeeperWebApiV1.Controllers
                 isEntrance = isEntranceBool
             };
 
+           
+
             await dbContext.Movements.AddAsync(movement);
             await dbContext.SaveChangesAsync();
 
-            return Ok();
+            return Ok("Movimento registado");
+        }
+
+
+        [HttpGet("GetWorker")]
+        public async Task<IActionResult> GetWorker(string link)
+        {
+            var email = GetUserIdFromToken();
+            //var email = "tomepereiraferreira@gmail.com";
+
+            var user = await userManager.FindByEmailAsync(email);
+
+
+            if (user == null)
+            {
+                return Unauthorized("Utilizador não autenticado");
+            }
+
+            string workerId = "";
+
+            try
+            {
+                var uri = new Uri(link);
+
+                var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+                workerId = queryParams["WId"];
+            }
+            catch (UriFormatException)
+            {
+                
+            }
+
+            var worker = await dbContext.WorkerProfiles.Include(w => w.ApplicationUser).Where(w => w.Id.ToString() == workerId).FirstOrDefaultAsync();
+
+            WorkerInfoDto response = new WorkerInfoDto()
+            {
+                number = worker.InternalNumber.ToString(),
+                name = worker.ApplicationUser.Name + " " + worker.ApplicationUser.Surname,
+                email = worker.ApplicationUser.Email
+            };
+
+            return Ok(response);
         }
     }
 }
